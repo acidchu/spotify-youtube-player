@@ -49,7 +49,7 @@ def playing(sp):  # main loop
         playing = sp.currently_playing()  # get the currently playing song data
         song = playing['item']['name']  # get the song name
         artist = playing['item']['artists'][0]['name']  # get the artist name
-        to_search = song + " " + artist + " music video"  # make the search query
+        to_search = song + " " + artist + " offical music video MV"  # make the search query
 
         if to_search != to_search_old:  # if the song has changed
             tries = 5  # number of tries to find the search bar and search for the song
