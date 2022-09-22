@@ -25,6 +25,6 @@ below is an example of how it looks when running
 7. click save
 8. copy your client id and put it in the client id variable in the code
 9. click show secret copy your client secret and put it in the client secret variable in the code
-10. open your editor and insall all requrements
+10. open your editor and run ```pip3 install -r requirements.txt```
 11. run
 
