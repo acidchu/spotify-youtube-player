@@ -2,20 +2,23 @@ import time
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from selenium import webdriver
-import pyautogui
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
+from youtubesearchpython import VideosSearch
+import datetime
 
 # = start-up =============================================
 #
 # ========================================================
 
-id = " "  # client id
-secret = " "  # client secret
-SCOPE = "ugc-image-upload ", "playlist-modify-private ", "playlist-read-private ", "user-read-private ", "user-read-playback-state ", "user-library-modify ", "user-read-playback-position ", "app-remote-control ", "user-read-recently-played ", "user-modify-playback-state ", "user-read-email ", "user-follow-modify ", "playlist-modify-public ", "user-follow-read ", "user-read-currently-playing ", "playlist-read-collaborative ", "user-library-read ", "streaming ", "user-top-read "
+with open("secret.txt", "r") as f:  # get the ids
+    id = f.readline().strip()
+    secret = f.readline().strip()
 
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=id,  # spotify authentication bullshit
+SCOPE ="user-read-playback-state ", "user-read-playback-position ", "app-remote-control ", "user-modify-playback-state ", "user-read-currently-playing ", "streaming "
+
+sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=id,  # spotify authentication
                                                client_secret=secret,
                                                redirect_uri="http://localhost:8888",
                                                scope=SCOPE))
@@ -24,83 +27,73 @@ sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=id,  # spotify authenti
 
 driver = webdriver.Firefox()  # open firefox
 driver.install_addon('extentions/enhancerforyoutube@maximerf.addons.mozilla.org.xpi')  # install the extension
-driver.install_addon('extentions/sponsorBlocker@ajay.app.xpi')  # install the extension
+driver.install_addon('extentions/AmbientBlocker.xpi')  # install the extension
+driver.install_addon('extentions/simple-youtube-age-restriction-bypass@zerody.one.xpi')  # install the extension
+driver.install_addon('extentions/autofullscreen.xpi')  # install the extension
 
-driver.get('https://www.youtube.com')  # go to youtube
+save = WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.CSS_SELECTOR, "#import-modal-btn")))  # find the import button
+save.click()  # click the import button
 driver.switch_to.window(driver.window_handles[0])  # switch to the youtube tab
+conf = open("extentions/conf.txt", "r+").read()  # extension config loader # open the config file
+driver.find_element(By.CSS_SELECTOR, "#import-textarea").send_keys(conf)  # find the text box and send the config
+save = WebDriverWait(driver, 1).until(EC.presence_of_element_located((By.CSS_SELECTOR, "#import-btn")))  # find the save button
+save.click()  # click the save button
 
 
 # = main loop ============================================
 #
 # ========================================================
 
-def full():  # make the video fullscreen
-    global fullscreen
-    fullscreen = True  # set fullscreen to true
-    img = WebDriverWait(driver, 10).until(  # find the fullscreen button
-        EC.presence_of_element_located((By.CSS_SELECTOR, ".efyt-control-bar > button:nth-child(9)")))
-    img.click()  # click the fullscreen button
+
+def time_get():
+    current_time = datetime.datetime.now()
+    current_time = int((current_time.hour * 3600) + current_time.minute * 60 + current_time.second)
+    return current_time
 
 
 def playing(sp):  # main loop
     global to_search_old  # global variables
-    global fullscreen
+    global skip_time
+    current_time = time_get()
     try:
+        if (int(current_time) % 10) == 0:
+            sp.seek_track(10)
+
         playing = sp.currently_playing()  # get the currently playing song data
         song = playing['item']['name']  # get the song name
         artist = playing['item']['artists'][0]['name']  # get the artist name
-        to_search = song + " " + artist + " offical music video MV"  # make the search query
+        to_search = song + " " + artist + " offical music video"  # make the search query
 
         if to_search != to_search_old:  # if the song has changed
-            tries = 5  # number of tries to find the search bar and search for the song
-            for i in range(tries):  # try x times to find the search bar and search for the song
-                try:
-                    seach_bar = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,  # find the search bar
-                                                                                                "/html/body/ytd-app/div[1]/div/ytd-masthead/div[3]/div[2]/ytd-searchbox/form/div[1]/div[1]/input")))
-                    seach_bar.clear()  # clear the search bar
-                    seach_bar.send_keys(to_search)  # put text in the search bar
-                    button = WebDriverWait(driver, 10).until(EC.presence_of_element_located(  # find the search button
-                        (By.XPATH, "/html/body/ytd-app/div[1]/div/ytd-masthead/div[3]/div[2]/ytd-searchbox/button")))
-                    button.click() # click the search button
-                except KeyError as e:
-                    if i < tries - 1:  # if it has errored to many times
-                        time.sleep(0.2)
-                        continue
-                    else:
-                        raise
-                break
-            # time.sleep(1)
+            videosSearch = VideosSearch(to_search, limit=1) # search youtube
+            url = videosSearch.result()['result'][0]['link'] # get the video url
+            duration = videosSearch.result()['result'][0]['duration'] # get the video duration
 
-            tries = 5  # number of tries to click the first video
-            for i in range(tries):
-                try:
-                    img = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH,  # find the first video
-                                                                                          "/html/body/ytd-app/div[1]/ytd-page-manager/ytd-search/div[1]/ytd-two-column-search-results-renderer/div/ytd-section-list-renderer/div[2]/ytd-item-section-renderer/div[3]/ytd-video-renderer[1]/div[1]/div/div[1]/div/h3/a")))
-                    img.click()  # click the first video
+            driver.get(url)  # go to the youtube video
 
-                    if fullscreen == False:  # if the video is not fullscreen
-                        time.sleep(4)
-                        full()  # make the video fullscreen
+            img = WebDriverWait(driver, 0).until(EC.presence_of_element_located((By.CSS_SELECTOR, ".ytp-fullscreen-button"))) # wait and find fullscreen button
+            img.click()  # click the fullscreen button
 
-                    to_search_old = to_search  # set the old search to the new search
-                except KeyError as e:
-                    if i < tries - 1:  # i is zero indexed
-                        time.sleep(0.2)
-                        continue
-                    else:
-                        raise
-                break
+            duration = duration.split(":")
+            skip_time = (int(current_time)) + int(duration[1]) + (int(duration[0]) * 60) + 0  # set the time to skip the video
+            to_search_old = to_search  # set the old search to the new search
+
+        if current_time > skip_time:  # if the video is not over
+            sp.next_track()
+
     except:
         pass
 
 
-fullscreen = False  # is the video fullscreen
 to_search_old = ""  # the last song that was searched
-
 starttime = time.time()
 
-pyautogui.press('f11')  # fullscreen youtube
+try:
+    sp.volume(0)  # try to set spotify volume to 0 doesnt work on mobile devices
+except:
+    pass
 
 while True:
     playing(sp)  # call main function
     time.sleep(0.5 - ((time.time() - starttime) % 0.5))  # run every second
+
